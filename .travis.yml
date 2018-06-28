@@ -18,7 +18,7 @@ before_script:
 install: true
 
 script:
-  - docker build -t ${DOCKER_USERNAME}/:${VERSION} ./
+  - docker build --build-arg=SYNAPSE_VERSION=${VERSION} -t ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${VERSION} ./
 
 before_deploy:
   - ./docker-login.sh
