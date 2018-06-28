@@ -13,7 +13,7 @@ env:
 
 
 before_script:
-  - sudo ./docker-install.sh
+  - sudo ./install-docker.sh
 
 install: true
 
