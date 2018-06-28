@@ -1,0 +1,586 @@
+# Don't bind to the https port
+no_tls: {{ or (env "NO_TLS") "False" }}
+
+tls_certificate_path: "/conf/federation.crt"
+tls_private_key_path: "/conf/federation.key"
+tls_dh_params_path: "/conf/federation.dh"
+
+# List of allowed TLS fingerprints for this server to publish along
+# with the signing keys for this server. Other matrix servers that
+# make HTTPS requests to this server will check that the TLS
+# certificates returned by this server match one of the fingerprints.
+#
+# Synapse automatically adds the fingerprint of its own certificate
+# to the list. So if federation traffic is handle directly by synapse
+# then no modification to the list is required.
+#
+# If synapse is run behind a load balancer that handles the TLS then it
+# will be necessary to add the fingerprints of the certificates used by
+# the loadbalancers to this list if they are different to the one
+# synapse is using.
+#
+# Homeservers are permitted to cache the list of TLS fingerprints
+# returned in the key responses up to the "valid_until_ts" returned in
+# key. It may be necessary to publish the fingerprints of a new
+# certificate and wait until the "valid_until_ts" of the previous key
+# responses have passed before deploying it.
+#
+# You can calculate a fingerprint from a given TLS listener via:
+# openssl s_client -connect $host:$port < /dev/null 2> /dev/null |
+#   openssl x509 -outform DER | openssl sha256 -binary | base64 | tr -d '='
+# or by checking matrix.org/federationtester/api/report?server_name=$host
+
+### The fingerprint is calucalted in the init script of the docker container ###
+{{ if env "TLS_FINGERPRINTS" }}
+tls_fingerprints:
+{{ range $fingerprint := (env "TLS_FINGERPRINTS") | split "," }}
+  - "sha256": "{{ $fingerprint }}"
+{{ end }}
+{{ end }}
+
+
+## Server ##
+
+# The domain name of the server, with optional explicit port.
+# This is used by remote servers to connect to this server,
+# e.g. matrix.org, localhost:8080, etc.
+# This is also the last part of your UserID.
+server_name: "{{ or (env "SERVER_NAME") "localhost" }}"
+
+# When running as a daemon, the file to store the pid in
+pid_file: "{{ or (env "PID_FILE") "/tmp/homeserver.pid" }}"
+
+# CPU affinity mask. Setting this restricts the CPUs on which the
+# process will be scheduled. It is represented as a bitmask, with the
+# lowest order bit corresponding to the first logical CPU and the
+# highest order bit corresponding to the last logical CPU. Not all CPUs
+# may exist on a given system but a mask may specify more CPUs than are
+# present.
+#
+# For example:
+#    0x00000001  is processor #0,
+#    0x00000003  is processors #0 and #1,
+#    0xFFFFFFFF  is all processors (#0 through #31).
+#
+# Pinning a Python process to a single CPU is desirable, because Python
+# is inherently single-threaded due to the GIL, and can suffer a
+# 30-40% slowdown due to cache blow-out and thread context switching
+# if the scheduler happens to schedule the underlying threads across
+# different cores. See
+# https://www.mirantis.com/blog/improve-performance-python-programs-restricting-single-cpu/.
+#
+# cpu_affinity: 0xFFFFFFFF
+{{ if env "CPU_AFFINITY" }}
+cpu_affinity: {{ env "CPU_AFFINITY" }}
+{{ end }}
+
+# Whether to serve a web client from the HTTP/HTTPS root resource.
+web_client: {{ or (env "WEB_CLIENT") "False" }}
+
+#
+# The root directory to server for the above web client.
+# If left undefined, synapse will serve the matrix-angular-sdk web client.
+# Make sure matrix-angular-sdk is installed with pip if web_client is True
+# and web_client_location is undefined
+# web_client_location: "/path/to/web/root"
+web_client_location: /usr/lib/python2.7/site-packages/syweb/webclient/
+
+# The public-facing base URL for the client API (not including _matrix/...)
+# public_baseurl: https://example.com:8448/
+{{ if env "PUBLIC_BASEURL" }}
+public_baseurl: {{ env "PUBLIC_BASEURL" }}
+{{ end }}
+
+# Set the soft limit on the number of file descriptors synapse can use
+# Zero is used to indicate synapse should set the soft limit to the
+# hard limit.
+soft_file_limit: {{ or (env "SOFT_FILE_LIMIT") 0 }}
+
+# The GC threshold parameters to pass to `gc.set_threshold`, if defined
+# gc_thresholds: [700, 10, 10]
+{{ if env "GC_THRESHOLDS" }}
+gc_thresholds:
+{{ range $e := env "GC_THRESHOLDS" | split "," }}
+  - {{ $e }}
+{{ end }}
+{{ end }}
+
+# Set the limit on the returned events in the timeline in the get
+# and sync operations. The default value is -1, means no upper limit.
+filter_timeline_limit: {{ or (env "FILTER_TIMELINE_LIMIT") "-1" }}
+
+# Whether room invites to users on this server should be blocked
+# (except those sent by local server admins). The default is False.
+block_non_admin_invites: {{ or (env "BLOCK_NON_ADMIN_INVITES") "False" }}
+
+listeners:
+  - port: 8448
+    bind_addresses:
+      - "::"
+      - "0.0.0.0"
+    type: http
+    tls: true
+    x_forwarded: false
+    resources:
+      - names: [federation]
+        compress: false
+
+  - port: 8008
+    tls: false
+    bind_addresses: ['::','0.0.0.0']
+    type: http
+    x_forwarded: true
+    resources:
+      - names:
+          - client
+          {{ if (env "WEB_CLIENT") | parseBool }}- webclient{{ end }}
+        compress: true
+
+  # Turn on the twisted ssh manhole service on localhost on the given
+  # port.
+  # - port: 9000
+  #   bind_address: 127.0.0.1
+  #   type: manhole
+
+# Database configuration
+database:
+  # The database engine name
+  {{ $dbEngine := or (env "DATABSE_ENGINE") "sqlite3" }}
+  name: {{ $dbEngine }}
+  # Arguments to pass to the engine
+  args:
+    {{ if $dbEngine | contains "sqlite3" }}
+    database: {{ or (env "DATABASE_FILE") "/data/synapse.db" }}
+    {{ end }}
+    {{ if $dbEngine | contains "psycopg2" }}
+    user: "{{ or (env "DATABASE_USER") "synapse" }}"
+    password: "{{ or (env "DATABASE_PASSWORD") "synapse" }}"
+    database: "{{ or (env "DATABSE_NAME") "synapse" }}"
+    host: "{{ or (env "DATABASE_HOST") "localhost" }}"
+    cp_min: 5
+    cp_max: 10
+    {{ end }}
+
+# Number of events to cache in memory.
+event_cache_size: "{{ or (env "EVENT_CACHE_SIZE") "10K" }}"
+
+
+# Logging verbosity level. Ignored if log_config is specified.
+verbose: {{ or (env "VERBOSE") "0" }}
+
+# File to write logging to. Ignored if log_config is specified.
+log_config: /conf/log.yaml
+
+
+## Ratelimiting ##
+
+# Number of messages a client can send per second
+rc_messages_per_second: {{ or (env "RC_MESSAGES_PER_SECOND") "0.2" }}
+
+# Number of message a client can send before being throttled
+rc_message_burst_count: {{ or (env "RC_MESSAGE_BURST_COUNT") "10.0"}}
+
+# The federation window size in milliseconds
+federation_rc_window_size: {{ or (env "FEDERATION_RC_WINDOW_SIZE") "1000" }}
+
+# The number of federation requests from a single server in a window
+# before the server will delay processing the request.
+federation_rc_sleep_limit: {{ or (env "FEDERATION_RC_SLEEP_LIMIT") "10" }}
+
+# The duration in milliseconds to delay processing events from
+# remote servers by if they go over the sleep limit.
+federation_rc_sleep_delay: {{ or (env "SYNAPE_FEDERATION_RC_SLEEP_DELAY") "500" }}
+
+# The maximum number of concurrent federation requests allowed
+# from a single server
+federation_rc_reject_limit: {{ or (env "FEDERATION_RC_REJECT_LIMIT") "50" }}
+
+# The number of federation requests to concurrently process from a
+# single server
+federation_rc_concurrent: {{ or (env "FEDERATION_RC_CONCURRENT") "3" }}
+
+
+# Directory where uploaded images and attachments are stored.
+media_store_path: "{{ or (env "MEDIA_STORE_PATH") "/data/media_store" }}"
+
+# Directory where in-progress uploads are stored.
+uploads_path: {{ or (env "UPLOADS_PATH") "/data/uploads" }}
+
+# The largest allowed upload size in bytes
+max_upload_size: "{{ or (env "SYNAPE_MAX_UPLOAD_SIZE") "10M" }}"
+
+# Maximum number of pixels that will be thumbnailed
+max_image_pixels: {{ or (env "MAX_IMAGE_PIXELS") "32M" }}
+
+# Whether to generate new thumbnails on the fly to precisely match
+# the resolution requested by the client. If true then whenever
+# a new resolution is requested by the client the server will
+# generate a new thumbnail. If false the server will pick a thumbnail
+# from a precalculated list.
+dynamic_thumbnails: {{ or (env "DYNAMIC_THUMBNAILS") "False" }}
+
+# List of thumbnail to precalculate when an image is uploaded.
+{{ $thumbnailSizes := or (env "THUMBNAIL_SIZES") "32,32,crop;96,96,crop;320,240,scale;640,480,scale;800,600,scale" }}
+thumbnail_sizes:
+{{ range $size := $thumbnailSizes | split ";" }}
+{{ $sizeParts := $size | split "," }}
+  - width: {{ index $sizeParts 0 }}
+    height: {{ index $sizeParts 1 }}
+    method: {{ index $sizeParts 2 }}
+{{ end }}
+
+# Is the preview URL API enabled?  If enabled, you *must* specify
+# an explicit url_preview_ip_range_blacklist of IPs that the spider is
+# denied from accessing.
+url_preview_enabled: {{ or (env "URL_PREVIEW_ENABLED") "False" }}
+
+# List of IP address CIDR ranges that the URL preview spider is denied
+# from accessing.  There are no defaults: you must explicitly
+# specify a list for URL previewing to work.  You should specify any
+# internal services in your network that you do not want synapse to try
+# to connect to, otherwise anyone in any Matrix room could cause your
+# synapse to issue arbitrary GET requests to your internal services,
+# causing serious security issues.
+#
+# url_preview_ip_range_blacklist:
+# - "127.0.0.0/8"
+# - "10.0.0.0/8"
+# - "172.16.0.0/12"
+# - "192.168.0.0/16"
+# - "100.64.0.0/10"
+# - "169.254.0.0/16"
+{{ if env "URL_PREVIEW_IP_RANGE_BLACKLIST" }}
+url_preview_ip_range_blacklist:
+{{ range $ip := env "URL_PREVIEW_IP_RANGE_BLACKLIST" | split ","  }}
+  - "{{ $ip }}"
+{{ end }}
+{{ end }}
+
+
+# List of IP address CIDR ranges that the URL preview spider is allowed
+# to access even if they are specified in url_preview_ip_range_blacklist.
+# This is useful for specifying exceptions to wide-ranging blacklisted
+# target IP ranges - e.g. for enabling URL previews for a specific private
+# website only visible in your network.
+#
+# url_preview_ip_range_whitelist:
+# - "192.168.1.1"
+{{ if env "URL_PREVIEW_IP_RANGE_WHITELIST" }}
+url_preview_ip_range_blacklist:
+{{ range $ip := env "URL_PREVIEW_IP_RANGE_WHITELIST" | split "," }}
+  - "{{ $ip }}"
+{{ end }}
+{{ end }}
+
+# Optional list of URL matches that the URL preview spider is
+# denied from accessing.  You should use url_preview_ip_range_blacklist
+# in preference to this, otherwise someone could define a public DNS
+# entry that points to a private IP address and circumvent the blacklist.
+# This is more useful if you know there is an entire shape of URL that
+# you know that will never want synapse to try to spider.
+#
+# Each list entry is a dictionary of url component attributes as returned
+# by urlparse.urlsplit as applied to the absolute form of the URL.  See
+# https://docs.python.org/2/library/urlparse.html#urlparse.urlsplit
+# The values of the dictionary are treated as an filename match pattern
+# applied to that component of URLs, unless they start with a ^ in which
+# case they are treated as a regular expression match.  If all the
+# specified component matches for a given list item succeed, the URL is
+# blacklisted.
+#
+# url_preview_url_blacklist:
+# # blacklist any URL with a username in its URI
+# - username: "*"
+#
+# # blacklist all *.google.com URLs
+# - netloc: "google.com"
+# - netloc: "*.google.com"
+#
+# # blacklist all plain HTTP URLs
+# - scheme: "http"
+#
+# # blacklist http(s)://www.acme.com/foo
+# - netloc: "www.acme.com"
+#   path: "/foo"
+#
+# # blacklist any URL with a literal IPv4 address
+# - netloc: "^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$"
+{{ if env "URL_PREVIEW_BLACKLIST" }}
+url_preview_ip_range_blacklist:
+{{ range $entry := env "URL_PREVIEW_BLACKLIST" | split ","  }}
+  - "{{ $entry }}"
+{{ end }}
+{{ end }}
+
+# The largest allowed URL preview spidering size in bytes
+max_spider_size: {{ or (env "MAX_SPIDER_SIZE") "10M" }}
+
+
+## Captcha ##
+# See docs/CAPTCHA_SETUP for full details of configuring this.
+
+# This Home Server"s ReCAPTCHA public key.
+# recaptcha_public_key: "YOUR_PUBLIC_KEY"
+{{ if env "RECAPTCHA_PUBLIC_KEY" }}
+recaptcha_public_key: "{{ env "RECAPTCHA_PUBLIC_KEY" }}"
+{{ end }}
+
+# This Home Server"s ReCAPTCHA private key.
+# recaptcha_private_key: "YOUR_PRIVATE_KEY"
+{{ if env "RECAPTCHA_PRIVATE_KEY" }}
+recaptcha_private_key: "{{ or (env "RECAPTCHA_PRIVATE_KEY") "YOUR_PRIVATE_KEY" }}"
+{{ end }}
+
+# Enables ReCaptcha checks when registering, preventing signup
+# unless a captcha is answered. Requires a valid ReCaptcha
+# public/private key.
+enable_registration_captcha: {{ or (env "ENABLE_REGISTRATION_CAPTCHA") "False"}}
+
+# A secret key used to bypass the captcha test entirely.
+#captcha_bypass_secret: "YOUR_SECRET_HERE"
+{{ if env "CAPTCHA_BYPASS_SECRET"  }}
+captcha_bypass_secret: {{ env "CAPTCHA_BYPASS_SECRET"  }}
+{{ end }}
+
+# The API endpoint to use for verifying m.login.recaptcha responses.
+recaptcha_siteverify_api: "{{ or (env "RECAPTCHA_SITEVERIFY_API") "https://www.google.com/recaptcha/api/siteverify" }}"
+
+
+## Turn
+
+# The public URIs of the TURN server to give to clients
+# turn
+turn_uris: {{ or (env "TURN_URIS") "[]" }}
+
+# The shared secret used to compute passwords for the TURN server
+{{ if env "TURN_SHARED_SECRET" }}
+turn_shared_secret: "{{ env "TURN_SHARED_SECRET" }}"
+{{ end }}
+
+# The Username and password if the TURN server needs them and
+# does not use a token
+#turn_username: "TURNSERVER_USERNAME"
+#turn_password: "TURNSERVER_PASSWORD"
+{{ if env "TURN_USERNAME" }}
+turn_username: {{ env "TURN_USERNAME" }}
+{{ end }}
+{{ if env "TURN_PASSWORD" }}
+turn_password: {{ env "TURN_PASSWORD" }}
+{{ end }}
+
+# How long generated TURN credentials last
+turn_user_lifetime: "{{ or (env "TURN_USER_LIFETIME") "1h" }}"
+
+# Whether guests should be allowed to use the TURN server.
+# This defaults to True, otherwise VoIP will be unreliable for guests.
+# However, it does introduce a slight security risk as it allows users to
+# connect to arbitrary endpoints without having first signed up for a
+# valid account (e.g. by passing a CAPTCHA).
+turn_allow_guests: {{ or (env "TURN_ALLOW_GUESTS") "False" }}
+
+## Registration ##
+
+# Enable registration for new users.
+enable_registration: {{ or (env "ENABLE_REGISTRATION") "False" }}
+
+# If set, allows registration by anyone who also has the shared
+# secret, even if registration is otherwise disabled.
+{{ if env "REGISTRATION_SHARED_SECRET" }}
+registration_shared_secret: "{{ env "REGISTRATION_SHARED_SECRET" }}"
+{{ end }}
+
+# Set the number of bcrypt rounds used to generate password hash.
+# Larger numbers increase the work factor needed to generate the hash.
+# The default number of rounds is 12.
+bcrypt_rounds: {{ or (env "BCRYPT_ROUNDS") "12" }}
+
+# Allows users to register as guests without a password/email/etc, and
+# participate in rooms hosted on this server which have been made
+# accessible to anonymous users.
+allow_guest_access: {{ or (env "ALLOW_GUEST_ACCESS") "False" }}
+
+# The list of identity servers trusted to verify third party
+# identifiers by this server.
+{{ $trustedServers := or (env "TRUSTED_THIRD_PARTY_ID_SERVERS") "matrix.org,vector.im,riot.im" | split "," }}
+trusted_third_party_id_servers:
+{{ range $server := $trustedServers }}
+  - {{ $server }}
+{{ end }}
+
+# Users who register on this homeserver will automatically be joined
+# to these rooms
+#auto_join_rooms:
+#    - "#example:example.com"
+{{ $autoRooms := or (env "AUTO_JOIN_ROOMS") "" }}
+{{ if $autoRooms }}
+auto_join_rooms:
+{{ range $room := $autoRooms }}
+  - {{ $room }}
+{{ end }}
+{{ end }}
+
+## Metrics ###
+
+# Enable collection and rendering of performance metrics
+enable_metrics: {{ or (env "ENABLE_METRICS") "False" }}
+report_stats: {{ or (env "REPORT_STATS") "False"}}
+
+
+## API Configuration ##
+
+# A list of event types that will be included in the room_invite_state
+{{ $invites := or (env "ROOM_INVITE_STATE_TYPES") "m.room.join_rules,m.room.canonical_alias,m.room.avatar,m.room.name" }}
+room_invite_state_types:
+{{ range $i := $invites | split "," }}
+  - "{{ $i }}"
+{{ end }}
+
+# A list of application service config file to use
+{{ if env  "APP_SERVICE_CONFIG_FILES" }}
+app_service_config_files:
+{{ range $file := env "APP_SERVICE_CONFIG_FILES" | split "," }}
+  - "{{ $file }}"
+{{ end }}
+{{ else }}
+app_service_config_files: []
+{{ end }}
+
+
+macaroon_secret_key: "{{ env "MACAROON_SECRET_KEY" }}"
+
+# Used to enable access token expiration.
+expire_access_token: {{ or (env "EXPIRE_ACCESS_TOKEN") "False" }}
+
+## Signing Keys ##
+
+# Path to the signing key to sign messages with
+signing_key_path: "/conf/signing.key"
+
+# The keys that the server used to sign messages with but won't use
+# to sign new messages. E.g. it has lost its private key
+old_signing_keys: {}
+#  "ed25519:auto":
+#    # Base64 encoded public key
+#    key: "The public part of your old signing key."
+#    # Millisecond POSIX timestamp when the key expired.
+#    expired_ts: 123456789123
+
+# How long key response published by this server is valid for.
+# Used to set the valid_until_ts in /key/v2 APIs.
+# Determines how quickly servers will query to check which keys
+# are still valid.
+key_refresh_interval: "{{ or (env "KEY_REFRESH_INTERVAL") "1d" }}"
+
+# The trusted servers to download signing keys from.
+{{ $pers :=  or (env "PERSPECTIVES_SERVERS") "matrix.org:Noi6WqcDj0QmPxCNQqgezwTlBKrfqehY1u2FyWP9uYw"}}
+perspectives:
+  servers:
+    # {{ range $server := $pers | split ";" }}
+    # {{ $serverParts := $server | split ":" }}
+    # {{ end }}
+    "matrix.org":
+      verify_keys:
+        "ed25519:auto":
+          key: "Noi6WqcDj0QmPxCNQqgezwTlBKrfqehY1u2FyWP9uYw"
+
+
+
+# Enable SAML2 for registration and login. Uses pysaml2
+# config_path:      Path to the sp_conf.py configuration file
+# idp_redirect_url: Identity provider URL which will redirect
+#                   the user back to /login/saml2 with proper info.
+# See pysaml2 docs for format of config.
+#saml2_config:
+#   enabled: true
+#   config_path: "/synapse/sp_conf.py"
+#   idp_redirect_url: "http://localhost/idp"
+
+
+
+# Enable CAS for registration and login.
+# cas_config:
+#   enabled: true
+#   server_url: "https://cas-server.com"
+#   service_url: "https://homeserver.domain.com:8448"
+   #required_attributes:
+#   #    name: value
+
+
+# The JWT needs to contain a globally unique "sub" (subject) claim.
+#
+# jwt_config:
+#    enabled: true
+#    secret: "a secret"
+#    algorithm: "HS256"
+
+
+
+# Enable password for login.
+password_config:
+   enabled: true
+   # Uncomment and change to a secret random string for extra security.
+   # DO NOT CHANGE THIS AFTER INITIAL SETUP!
+   pepper: "{{ env "PASSWORD_CONFIG_PEPPER" }}"
+
+
+
+# Enable sending emails for notification events
+# Defining a custom URL for Riot is only needed if email notifications
+# should contain links to a self-hosted installation of Riot; when set
+# the "app_name" setting is ignored.
+#
+# If your SMTP server requires authentication, the optional smtp_user &
+# smtp_pass variables should be used
+#
+email:
+    enable_notifs: {{ or (env "EMAIL_ENABLE_NOTIFS") "False" }}
+    smtp_host: "{{ or (env "EMAIL_SMTP_HOST") "localhost" }}"
+    smtp_port: {{ or (env "EMAIL_SMTP_PORT") "25" }}
+    smtp_user: "{{ or (env "EMAIL_SMTP_USER") "" }}"
+    smtp_pass: "{{ or (env "EMAIL_SMTP_PASS") "" }}"
+    require_transport_security: {{ or (env "EMAIL_REQUIRE_TRANSPORT_SECURITY") "False" }}
+    notif_from: "{{ or (env "EMAIL_NOTIF_FROM") "localhost" }}"
+    app_name: "{{ or (env "EMAIL_APP_NAME") "Matrix" }}"
+    template_dir: {{ or (env "EMAIL_TEMPLATE_DIR") "res/templates" }}
+    notif_template_html: {{ or (env "EMAIL_NOTIF_TEMPLATE_HTML") "notif_mail.html" }}
+    notif_template_text: {{ or (env "EMAIL_NOTIF_TEMPLATE_TEXT") "notif_mail.txt" }}
+    notif_for_new_users: {{ or (env "EMAIL_NOTIF_FOR_NEW_USERS") "True" }}
+    riot_base_url: "{{ or (env "EMAIL_RIOT_BASE_URL") "http://localhost/riot" }}"
+
+
+# Clients requesting push notifications can either have the body of
+# the message sent in the notification poke along with other details
+# like the sender, or just the event ID and room ID (`event_id_only`).
+# If clients choose the former, this option controls whether the
+# notification request includes the content of the event (other details
+# like the sender are still included). For `event_id_only` push, it
+# has no effect.
+
+# For modern android devices the notification content will still appear
+# because it is loaded by the app. iPhone, however will send a
+# notification saying only that a message arrived and who it came from.
+#
+push:
+    include_content: {{ or (env "PUSH_INCLUDE_CONTENT") "False" }}
+
+
+# Whether to allow non server admins to create groups on this server
+enable_group_creation: {{ or (env "ENABLE_GROUP_CREATION") "False" }}
+
+# If enabled, non server admins can only create groups with local parts
+# starting with this prefix
+# group_creation_prefix: "unofficial/"
+
+
+
+# User Directory configuration
+#
+# "search_all_users" defines whether to search all users visible to your HS
+# when searching the user directory, rather than limiting to users visible
+# in public rooms.  Defaults to false.  If you set it True, you"ll have to run
+# UPDATE user_directory_stream_pos SET stream_id = NULL;
+# on your database to tell it to rebuild the user_directory search indexes.
+#
+user_directory:
+    search_all_users: {{ or (env "USER_DIRECTORY_SEARCH_ALL_USERS") "False" }}
+

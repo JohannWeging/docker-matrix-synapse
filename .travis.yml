@@ -1,0 +1,30 @@
+language: generic
+sudo: required
+services:
+  - docker
+
+env:
+  global:
+    - DOCKER_IMAGE=matrix-synapse
+    - LATEST=0.31.2
+  matrix:
+    - VERSION=0.31.2
+    - VERSION=0.30.0
+
+
+before_script:
+  - sudo ./docker-install.sh
+
+install: true
+
+script:
+  - docker build -t ${DOCKER_USERNAME}/:${VERSION} ./
+
+before_deploy:
+  - ./docker-login.sh
+
+deploy:
+  provider: script
+  script: ./deploy.sh
+  on:
+    all_branches: true
