@@ -145,7 +145,7 @@ listeners:
 # Database configuration
 database:
   # The database engine name
-  {{ $dbEngine := or (env "DATABSE_ENGINE") "sqlite3" }}
+  {{ $dbEngine := or (env "DATABASE_ENGINE") "sqlite3" }}
   name: {{ $dbEngine }}
   # Arguments to pass to the engine
   args:
@@ -155,7 +155,7 @@ database:
     {{ if $dbEngine | contains "psycopg2" }}
     user: "{{ or (env "DATABASE_USER") "synapse" }}"
     password: "{{ or (env "DATABASE_PASSWORD") "synapse" }}"
-    database: "{{ or (env "DATABSE_NAME") "synapse" }}"
+    database: "{{ or (env "DATABASE_NAME") "synapse" }}"
     host: "{{ or (env "DATABASE_HOST") "localhost" }}"
     cp_min: 5
     cp_max: 10
