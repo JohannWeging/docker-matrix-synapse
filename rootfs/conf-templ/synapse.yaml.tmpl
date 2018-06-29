@@ -165,9 +165,6 @@ database:
 event_cache_size: "{{ or (env "EVENT_CACHE_SIZE") "10K" }}"
 
 
-# Logging verbosity level. Ignored if log_config is specified.
-verbose: {{ or (env "VERBOSE") "0" }}
-
 # File to write logging to. Ignored if log_config is specified.
 log_config: /conf/log.yaml
 

@@ -1,32 +1,30 @@
 #!/bin/sh
 
-CONF_TEMPLATE_PATH="/conf/synapse.yaml.tmpl"
-CONF_PATH="/conf/synapse.yaml"
+CONF_PATH=/data/conf
 
+mkdir -p "${CONF_PATH}"
+chown synapse:synapse /data
+chown synapse:synapse "${CONF_PATH}"
 
-if [ ! -e /conf/signing_key.dh ]; then
-	gosu synapse /usr/bin/python2 -m synapse.app.homeserver --config-path /conf/default.yaml \
+if [ ! -e ${CONF_PATH}/signing_key.dh ]; then
+	gosu synapse /usr/bin/python2 -m synapse.app.homeserver --config-path "${CONF_PATH}/default.yaml" \
 	--generate-config --report-stats no --server-name localhost > /dev/null
 
-	mv /conf/localhost.tls.crt /conf/federation.crt
-	mv /conf/localhost.tls.key /conf/federation.key
-	mv /conf/localhost.tls.dh /conf/federation.dh
-	mv /conf/localhost.signing.key /conf/signing.key
+	mv "${CONF_PATH}/localhost.tls.crt" "${CONF_PATH}/federation.crt"
+	mv "${CONF_PATH}/localhost.tls.key" "${CONF_PATH}/federation.key"
+	mv "${CONF_PATH}/localhost.tls.dh" "${CONF_PATH}/federation.dh"
+	mv "${CONF_PATH}/localhost.signing.key" "${CONF_PATH}/signing.key"
 
-	cat /conf/default.yaml | grep macaroon_secret_key | cut -d ':' -f 2 | tr -d ' "\n' > /conf/macaroon_secret_key
-	cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1 > /conf/password.pepper
+	cat "${CONF_PATH}/default.yaml" | grep macaroon_secret_key | cut -d ':' -f 2 | tr -d ' "\n' > "${CONF_PATH}/macaroon_secret_key"
+	cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1 > "${CONF_PATH}/password.pepper"
 
-	rm -f /conf/default.yaml
+	rm -f "${CONF_PATH}/default.yaml"
 fi
 
-mkdir -p /conf
-chown -R synapse:synapse /conf
+chown synapse:synapse -R  "${CONF_PATH}"
 
-mkdir -p /data
-chown -R synapse:synapse /data
-
-export MACAROON_SECRET_KEY="$(cat /conf/macaroon_secret_key | tr -d ' \n')"
-export PASSWORD_CONFIG_PEPPER="$(cat /conf/password.pepper | tr -d ' \n')"
+export MACAROON_SECRET_KEY="$(cat ${CONF_PATH}/macaroon_secret_key | tr -d ' \n')"
+export PASSWORD_CONFIG_PEPPER="$(cat ${CONF_PATH}/password.pepper | tr -d ' \n')"
 
 
 if [ -z ${SERVER_NAME+x} ]; then
@@ -42,11 +40,11 @@ if [ -z ${TLS_FINGERPRINTS+x} ]; then
 	fi
 fi
 
-gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "/conf/log.yaml.tmpl:/conf/log.yaml"
-gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "${CONF_TEMPLATE_PATH}:${CONF_PATH}"
+gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "/conf-templ/log.yaml.tmpl:${CONF_PATH}/log.yaml"
+gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "/conf-templ/synapse.yaml.templ:${CONF_PATH}/synapse.yaml"
 
-MEDIA_STORE_PATH=${MEDIA_STORE_PATH:-$(cat /conf/synapse.yaml | grep media_store_path | cut -d ':' -f 2 | tr -d ' ')}
-UPLOADS_PATH=${UPLOADS_PATH:-$(cat /conf/synapse.yaml | grep uploads_path | cut -d ':' -f 2 | tr -d ' ')}
+MEDIA_STORE_PATH=${MEDIA_STORE_PATH:-$(cat ${CONF_PATH}/synapse.yaml | grep media_store_path | cut -d ':' -f 2 | tr -d ' ')}
+UPLOADS_PATH=${UPLOADS_PATH:-$(cat ${CONF_PATH}/synapse.yaml | grep uploads_path | cut -d ':' -f 2 | tr -d ' ')}
 
 mkdir -p "${MEDIA_STORE_PATH}"
 mkdir -p "${UPLOADS_PATH}"
@@ -55,4 +53,4 @@ chown synapse:synapse "${MEDIA_STORE_PATH}"
 chown synapse:synapse "${UPLOADS_PATH}"
 
 
-gosu synapse /usr/bin/python2 -m synapse.app.homeserver --config-path /conf/synapse.yaml
+gosu synapse /usr/bin/python2 -m synapse.app.homeserver --config-path "${CONF_PATH}/synapse.yaml"
