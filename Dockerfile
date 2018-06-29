@@ -31,9 +31,8 @@ RUN set -x \
 ADD rootfs /
 
 RUN set -x \
-&& chown synapse:synapse /conf \
 && chmod +x /synapse.sh
 
-VOLUME ["/conf", "/data"]
+VOLUME ["/data"]
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["/synapse.sh"]
