@@ -1,5 +1,12 @@
 #!/bin/sh
 
+set -e
+
+if [ -z ${SERVER_NAME+x} ]; then
+	echo "SERVER_NAME not set"
+	exit 1
+fi
+
 CONF_PATH=/data/conf
 
 mkdir -p "${CONF_PATH}"
@@ -8,12 +15,12 @@ chown synapse:synapse "${CONF_PATH}"
 
 if [ ! -e ${CONF_PATH}/signing_key.dh ]; then
 	gosu synapse /usr/bin/python2 -m synapse.app.homeserver --config-path "${CONF_PATH}/default.yaml" \
-	--generate-config --report-stats no --server-name localhost > /dev/null
+	--generate-config --report-stats no --server-name "${SERVER_NAME}" > /dev/null
 
-	mv "${CONF_PATH}/localhost.tls.crt" "${CONF_PATH}/federation.crt"
-	mv "${CONF_PATH}/localhost.tls.key" "${CONF_PATH}/federation.key"
-	mv "${CONF_PATH}/localhost.tls.dh" "${CONF_PATH}/federation.dh"
-	mv "${CONF_PATH}/localhost.signing.key" "${CONF_PATH}/signing.key"
+	mv "${CONF_PATH}/${SERVER_NAME}.tls.crt" "${CONF_PATH}/federation.crt"
+	mv "${CONF_PATH}/${SERVER_NAME}.tls.key" "${CONF_PATH}/federation.key"
+	mv "${CONF_PATH}/${SERVER_NAME}.tls.dh" "${CONF_PATH}/federation.dh"
+	mv "${CONF_PATH}/${SERVER_NAME}.signing.key" "${CONF_PATH}/signing.key"
 
 	cat "${CONF_PATH}/default.yaml" | grep macaroon_secret_key | cut -d ':' -f 2 | tr -d ' "\n' > "${CONF_PATH}/macaroon_secret_key"
 	cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1 > "${CONF_PATH}/password.pepper"
@@ -27,10 +34,6 @@ export MACAROON_SECRET_KEY="$(cat ${CONF_PATH}/macaroon_secret_key | tr -d ' \n'
 export PASSWORD_CONFIG_PEPPER="$(cat ${CONF_PATH}/password.pepper | tr -d ' \n')"
 
 
-if [ -z ${SERVER_NAME+x} ]; then
-	echo "SERVER_NAME not set"
-	exit 1
-fi
 
 if [ -z ${TLS_FINGERPRINTS+x} ]; then
 	export TLS_FINGERPRINTS="$(openssl s_client -connect ${SERVER_NAME}:443 < /dev/null 2> /dev/null | openssl x509 -outform DER | openssl sha256 -binary | base64 | tr -d '=')"
