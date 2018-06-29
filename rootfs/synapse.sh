@@ -40,8 +40,8 @@ if [ -z ${TLS_FINGERPRINTS+x} ]; then
 	fi
 fi
 
-gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "/conf-templ/log.yaml.tmpl:${CONF_PATH}/log.yaml"
-gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "/conf-templ/synapse.yaml.templ:${CONF_PATH}/synapse.yaml"
+gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "/conf-tmpl/log.yaml.tmpl:${CONF_PATH}/log.yaml"
+gosu synapse consul-template -once -consul-addr='' -vault-addr='' -consul-retry="false" -template "/conf-tmpl/synapse.yaml.tmpl:${CONF_PATH}/synapse.yaml"
 
 MEDIA_STORE_PATH=${MEDIA_STORE_PATH:-$(cat ${CONF_PATH}/synapse.yaml | grep media_store_path | cut -d ':' -f 2 | tr -d ' ')}
 UPLOADS_PATH=${UPLOADS_PATH:-$(cat ${CONF_PATH}/synapse.yaml | grep uploads_path | cut -d ':' -f 2 | tr -d ' ')}
