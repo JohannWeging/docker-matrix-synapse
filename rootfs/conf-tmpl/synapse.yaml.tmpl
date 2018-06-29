@@ -1,9 +1,9 @@
 # Don't bind to the https port
 no_tls: {{ or (env "NO_TLS") "False" }}
 
-tls_certificate_path: "/conf/federation.crt"
-tls_private_key_path: "/conf/federation.key"
-tls_dh_params_path: "/conf/federation.dh"
+tls_certificate_path: "/data/conf/federation.crt"
+tls_private_key_path: "/data/conf/federation.key"
+tls_dh_params_path: "/data/conf/federation.dh"
 
 # List of allowed TLS fingerprints for this server to publish along
 # with the signing keys for this server. Other matrix servers that
@@ -166,7 +166,7 @@ event_cache_size: "{{ or (env "EVENT_CACHE_SIZE") "10K" }}"
 
 
 # File to write logging to. Ignored if log_config is specified.
-log_config: /conf/log.yaml
+log_config: /data/conf/log.yaml
 
 
 ## Ratelimiting ##
@@ -451,7 +451,7 @@ expire_access_token: {{ or (env "EXPIRE_ACCESS_TOKEN") "False" }}
 ## Signing Keys ##
 
 # Path to the signing key to sign messages with
-signing_key_path: "/conf/signing.key"
+signing_key_path: "/data/conf/signing.key"
 
 # The keys that the server used to sign messages with but won't use
 # to sign new messages. E.g. it has lost its private key
