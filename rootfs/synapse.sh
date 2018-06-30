@@ -28,6 +28,10 @@ if [ ! -e ${CONF_PATH}/signing_key.dh ]; then
 	rm -f "${CONF_PATH}/default.yaml"
 fi
 
+if [ ! -e ${CONF_PATH}/email-templates ]; then
+	cp -r /email-tmpl "${CONF_PATH}/email-templates"
+fi
+
 chown synapse:synapse -R  "${CONF_PATH}"
 
 export MACAROON_SECRET_KEY="$(cat ${CONF_PATH}/macaroon_secret_key | tr -d ' \n')"

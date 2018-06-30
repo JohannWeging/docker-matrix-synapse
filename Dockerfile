@@ -20,6 +20,7 @@ RUN set -x \
 && git clone --branch v${SYNAPSE_VERSION} --depth 1 https://github.com/matrix-org/synapse.git /tmp/synapse \
 && cd /tmp/synapse \
 && pip install -U . \
+&& cp -r res/templates /email-tmpl \
 && cd / \
 && pip install matrix-angular-sdk \
 && rm -rf /tmp/* /root/.cache \
