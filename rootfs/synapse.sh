@@ -13,7 +13,7 @@ mkdir -p "${CONF_PATH}"
 chown synapse:synapse /data
 chown synapse:synapse "${CONF_PATH}"
 
-if [ ! -e ${CONF_PATH}/signing_key.dh ]; then
+if [ ! -e ${CONF_PATH}/signing.key ]; then
 	gosu synapse /usr/bin/python2 -m synapse.app.homeserver --config-path "${CONF_PATH}/default.yaml" \
 	--generate-config --report-stats no --server-name "${SERVER_NAME}" > /dev/null
 
