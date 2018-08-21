@@ -2,7 +2,7 @@
 
 set -x
 
-if [ -z "${VERSION_STRIP_PATCH}" ]; then
+if [ -z "${VERSION_KEEP_PATCH}" ]; then
 	TAG_VERSION=${VERSION%.*}
 else
 	TAG_VERSION=${VERSION}
