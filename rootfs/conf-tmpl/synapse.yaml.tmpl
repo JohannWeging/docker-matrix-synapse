@@ -116,7 +116,6 @@ block_non_admin_invites: {{ or (env "BLOCK_NON_ADMIN_INVITES") "False" }}
 listeners:
   - port: 8448
     bind_addresses:
-      - "::"
       - "0.0.0.0"
     type: http
     tls: true
@@ -127,7 +126,8 @@ listeners:
 
   - port: 8008
     tls: false
-    bind_addresses: ['::','0.0.0.0']
+    bind_addresses:
+      - '0.0.0.0'
     type: http
     x_forwarded: true
     resources:
