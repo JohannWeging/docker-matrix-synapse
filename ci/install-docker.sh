@@ -2,6 +2,11 @@
 
 set -x
 
+cd /
+curl -sL https://github.com/linyows/go-retry/releases/download/v0.3.1/linux_amd64.zip > retry.zip
+unzip retry.zip
+cp retry /usr/bin
+
 apt-get -y remove docker docker-engine docker.io
 apt-get -y install apt-transport-https ca-certificates curl software-properties-common
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
