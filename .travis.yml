@@ -22,7 +22,7 @@ install: true
 script:
   - docker build --build-arg=SYNAPSE_VERSION=${VERSION} -t ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${VERSION} ./
   - docker-compose -f ./ci/docker-compose.yml up -d
-  - curl -IL http://localhost | grep '200 OK'
+  - retry -i 10s -c 6 bash -c "curl -IL http://localhost | grep '200 OK'"
 
 before_deploy:
   - ./ci/docker-login.sh
