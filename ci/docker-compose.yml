@@ -1,0 +1,39 @@
+version: "3"
+
+services:
+  synapse:
+    image: johannweging/matrix-synapse:${VERSION}
+    labels:
+      traefik.backend: synapse
+      traefik.frontend.rule: Host:localhost
+      traefik.port: "8008"
+      traefik.enable: "true"
+    environment:
+      SERVER_NAME: localhost
+      WEB_CLIENT: "true"
+      ENABLE_REGISTRATION: "true"
+    ports:
+      - "8448:8448"
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:latest
+    command: >
+      --docker
+      --docker.watch
+      --docker.exposedbydefault=false
+      --entrypoints='Name:http Address::80'
+      --defaultentrypoints=http
+      --web
+      -l info
+    networks:
+      - default
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+
