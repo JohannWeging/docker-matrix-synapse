@@ -28,7 +28,7 @@ if [ ! -e ${CONF_PATH}/signing.key ]; then
 	rm -f "${CONF_PATH}/default.yaml"
 fi
 
-if [ ! -e ${CONF_PATH}/email-templates ]; then
+if [ -e /email-tmpl ] && [! -e ${CONF_PATH}/email-templates ]; then
 	cp -r /email-tmpl "${CONF_PATH}/email-templates"
 fi
 
