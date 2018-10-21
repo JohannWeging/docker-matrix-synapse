@@ -5,11 +5,13 @@ ARG SYNAPSE_VERSION
 ENV SYNAPSE_VERSON=${SYNAPSE_VERSION} CONSUL_TEMPLATE_VERSION=0.19.5
 
 RUN set -x \
+&& apk add --update --no-cache curl \
 && curl https://releases.hashicorp.com/consul-template/${CONSUL_TEMPLATE_VERSION}/consul-template_${CONSUL_TEMPLATE_VERSION}_linux_amd64.tgz > /tmp/consul-template.tgz \
 && cd /tmp \
 && tar -xf consul-template.tgz \
 && mv consul-template /usr/bin \
 && cd / \
+&& apk del curl \
 && rm -rf /tmp/*
 
 RUN set -x \
