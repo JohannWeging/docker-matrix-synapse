@@ -23,7 +23,7 @@ RUN set -x \
 && cd /tmp/synapse \
 && pip install --upgrade pip \
 && pip install -U . \
-&& cp -r res/templates /email-tmpl \
+&& cp -r res/templates /email-tmpl || echo 0 \
 && cd / \
 && pip install matrix-angular-sdk \
 && rm -rf /tmp/* /root/.cache \
