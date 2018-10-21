@@ -21,6 +21,7 @@ RUN set -x \
 && apk add --update --no-cache --virtual .deps git gcc make linux-headers musl-dev python2-dev py2-pip libffi-dev openssl-dev jpeg-dev \
 && git clone --branch v${SYNAPSE_VERSION} --depth 1 https://github.com/matrix-org/synapse.git /tmp/synapse \
 && cd /tmp/synapse \
+&& pip install --upgrade pip \
 && pip install -U . \
 && cp -r res/templates /email-tmpl \
 && cd / \
