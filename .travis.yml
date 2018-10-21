@@ -15,18 +15,20 @@ env:
 
 
 before_script:
-  - sudo ./install-docker.sh
+  - sudo ./ci/install-docker.sh
 
 install: true
 
 script:
   - docker build --build-arg=SYNAPSE_VERSION=${VERSION} -t ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${VERSION} ./
+  - docker-compose -f ./ci/docker-compose.yml up -d
+  - retry -i 10s -c 6 bash -c "curl -IL http://localhost | grep '200 OK'"
 
 before_deploy:
-  - ./docker-login.sh
+  - ./ci/docker-login.sh
 
 deploy:
   provider: script
-  script: ./deploy.sh
+  script: ./ci/deploy.sh
   on:
-    all_branches: true
+    branche: master

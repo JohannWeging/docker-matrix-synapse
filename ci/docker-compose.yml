@@ -2,7 +2,7 @@ version: "3"
 
 services:
   synapse:
-    image: johannweging/matrix-synapse:latest
+    image: johannweging/matrix-synapse:${VERSION}
     labels:
       traefik.backend: synapse
       traefik.frontend.rule: Host:localhost
@@ -14,6 +14,7 @@ services:
       ENABLE_REGISTRATION: "true"
     ports:
       - "8448:8448"
+    restart: unless-stopped
 
   traefik:
     image: traefik:latest
@@ -21,8 +22,8 @@ services:
       --docker
       --docker.watch
       --docker.exposedbydefault=false
-      --entrypoints='Name:https Address::443 TLS'
-      --defaultentrypoints=https
+      --entrypoints='Name:http Address::80'
+      --defaultentrypoints=http
       --web
       -l info
     networks:
