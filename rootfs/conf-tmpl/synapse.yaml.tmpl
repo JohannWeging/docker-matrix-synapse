@@ -538,9 +538,6 @@ email:
     require_transport_security: {{ or (env "EMAIL_REQUIRE_TRANSPORT_SECURITY") "False" }}
     notif_from: "{{ or (env "EMAIL_NOTIF_FROM") "localhost" }}"
     app_name: "{{ or (env "EMAIL_APP_NAME") "Matrix" }}"
-    template_dir: {{ or (env "EMAIL_TEMPLATE_DIR") "/data/conf/email-templates" }}
-    notif_template_html: {{ or (env "EMAIL_NOTIF_TEMPLATE_HTML") "notif_mail.html" }}
-    notif_template_text: {{ or (env "EMAIL_NOTIF_TEMPLATE_TEXT") "notif_mail.txt" }}
     notif_for_new_users: {{ or (env "EMAIL_NOTIF_FOR_NEW_USERS") "True" }}
     riot_base_url: "{{ or (env "EMAIL_RIOT_BASE_URL") "http://localhost/riot" }}"
 
