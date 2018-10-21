@@ -6,8 +6,10 @@ services:
 env:
   global:
     - DOCKER_IMAGE=matrix-synapse
-    - LATEST=0.31.2
+    - LATEST=0.33.7
   matrix:
+    - VERSION=0.33.7
+    - VERSION=0.32.2
     - VERSION=0.31.2
     - VERSION=0.30.0
 
